@@ -3,6 +3,7 @@ section .data
     len equ $-msg
 
 section .text
+
     global main
 
 main:

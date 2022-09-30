@@ -24,7 +24,7 @@ section .text
     global main ;程序入口
 
 main:
-  .getin:
+.getin:
     mov eax,tip1
     call printStr ;输出提示语句
 
@@ -40,7 +40,7 @@ main:
     call getOperatorAndCaozuofu
 
 
-  .endin
+.endin:
 ;结束程序
     mov eax, 1 
     mov ebx, 0 
@@ -61,7 +61,7 @@ getOperatorAndCaozuofu:
     mov byte[esi],0
     mov byte[edi],0
 
-  .find
+ ; .find
 
 
 
@@ -89,13 +89,13 @@ getStrLen:
     push ebx
     push eax
     mov ebx,eax;两者地址相同用于后续相减
-  .getNext:
+.getNext:
     cmp byte[eax],0
     jz endLoop ;以标志位为1时跳转
     inc eax ;eax自增
     jmp getNext
 
-  .endLoop:
+.endLoop:
     sub eax,ebx;相减得出长度
     mov edx,eax
     pop eax

@@ -15,6 +15,7 @@ len1: resb 255
 operator2: resb 255
 len2: resb 255
 caozuofu: resb 255;操作符
+result: resb 255;结果
 
 
 
@@ -36,14 +37,24 @@ main:
     cmp byte[input],'q'
     jz endin
 
+
     ;否则进入后续处理
     ;获取操作符,存入caozuofu
     call getOperatorAndCaozuofu
 
+   
+
     ;检查是否符合输入规范，这里检查是否缺少操作数
     call checkIsValid
 
-    ;
+    ;开始处理相关运算
+    cmp byte[caozuofu],'+'
+    call bigAdd
+    mov eax,result
+    call format_res
+    call 
+    cmp byte[caozuofu],'*'
+    call bigMul                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
 
     jmp getin
   endin:
@@ -127,6 +138,7 @@ getOperatorAndCaozuofu:
     popad
     ret
 
+
 printStr:
 ;此函数用于输出字符串，其中字符串地址在eax
     push ecx
@@ -144,6 +156,38 @@ printStr:
     pop ecx
     pop eax
     ret
+
+printInt:
+;控制台输出数字,数字在eax
+    push   eax
+    push   ecx
+    push   edx
+    push   esi
+    mov    ecx, 0;ecx 存位数
+  
+  divideLoop:
+    inc    ecx       ;存有位数
+    mov    edx, 0
+    mov    esi, 10
+    idiv   esi       ;eax=eax/10
+    add    edx, 48   ;edx存有余数
+    push   edx       ;edx存入栈
+    cmp    eax, 0
+    jnz    divideLoop
+  printLoop:
+    dec    ecx
+    mov    eax, esp
+    call   printStr
+    pop    eax
+    cmp    ecx, 0
+    jnz    printLoop
+    pop    esi
+    pop    edx
+    pop    ecx
+    pop    eax
+    ret
+
+
 
 
 ;用于获取字符串长度以输出
@@ -175,3 +219,111 @@ getInput:
     int 80h
     popad
     ret
+
+
+
+;重要：加法的实现
+bigAdd:
+;主要实现大数加法
+    push eax
+    push ebx
+    push edx
+    mov ecx,result;将result地址赋值给ecx，从而通过修改ecx来改变result
+
+    mov eax,operator1
+    mov ebx,operator2
+    mov esi,dword[len1]
+    mov edi,dword[len2]
+
+    cmp esi,edi;对两个操作数进行比较，按不同情况进行操作
+    ja o1_longer
+    je normalCal
+    jmp o2_longer
+
+  o1_longer:
+    sub esi,edi;此时esi保存长出来的长度
+    
+  o1_loop:;将o1的高位先存入结果中
+    cmp esi,0
+    je normalCal
+    mov dl,byte[eax]
+    mov byte[ecx],dl
+    inc eax
+    inc ecx
+    dec esi
+    jmp o1_loop
+
+  o2_longer:;此时esi保存o2长出来的长度
+    sub edi,esi
+  o2_loop:;将o2的高位先存入结果中
+    cmp edi,0
+    je normalCal
+    mov dl,byte[ebx]
+    mov byte[ecx],dl
+    inc ebx
+    inc ecx
+    dec edi
+    jmp o2_loop
+
+
+  normalCal:;真正的加法,两者位数相同时
+    cmp byte[eax],0
+    je finishAdd
+    mov dl,byte[eax]
+    add dl,byte[ebx]
+    sub dl,30h;减去0的ascii值
+    mov byte[ecx],dl
+    inc eax
+    inc ebx
+    inc ecx
+    jmp normalCal
+    
+  finishAdd:
+    pop edx
+    pop ebx
+    pop eax
+    ret
+
+
+format_res:;将数字转变为10进制格式，如果发生进位会提前输出一
+    push edx
+    mov ebx,eax
+
+  toEnd:
+    cmp byte[eax],0
+    je formatLoop
+    inc eax
+    jmp toEnd
+
+  formatLoop:
+    dec eax
+    cmp eax,ebx
+    je formatFinish
+
+  formatLoop_1:
+		cmp byte[eax],'9'
+		jna formatLoop
+		mov edx,eax
+		dec edx
+		sub byte[eax],10
+		add byte[edx],1
+		jmp formatLoop_1
+
+  formatFinish:
+    mov ecx,0
+    cmp byte[eax],'9'
+    ja extraPrint
+    pop edx
+    ret
+
+  extraPrint:
+    inc ecx
+    sub byte[eax],10
+    cmp byte[eax],'9'
+    ja extraPrint
+    push eax
+    mov eax,ecx
+    call printInt
+    pop eax
+    jmp formatFinish
+

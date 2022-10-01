@@ -50,7 +50,7 @@ main:
 
 
 getOperatorAndCaozuofu:
-;此函数用于获取操作符,输出：caozuofu
+;此函数用于获取操作符,输出：caozuofu和两个操作数
     pushad
     mov byte[caozuofu],0
     mov eax,input
@@ -62,10 +62,40 @@ getOperatorAndCaozuofu:
     mov byte[esi],0
     mov byte[edi],0
 
- ; .find
+  findcaozuoshu:
+  ;看是否是操作符1
+    cmp byte[eax],'+'
+    je getCaozuoshu
+    cmp byte[eax],'*'
+    je getCaozuoshu
 
+  ;接下来存第一个数
+    mov bl,byte[eax]
+    mov byte[ecx],bl
+    inc eax
+    inc ecx
+    inc byte[esi]
+    jmp findcaozuoshu
+  
+  getCaozuoshu:
+    mov bl,byte[eax]
+    mov byte[caozuofu],bl;将操作符存入内存 
+    inc eax ;跳过这个操作符
 
+  another:
+  ;读第二个数
+    cmp byte[eax],0
+    jz end
+    mov bl,byte[eax]
+    mov byte[edx],bl
+    inc eax
+    inc edx
+    inc byte[edi]
+    jmp another
 
+  end:
+    popad
+    ret
 
 printStr:
 ;此函数用于输出字符串，其中字符串地址在eax

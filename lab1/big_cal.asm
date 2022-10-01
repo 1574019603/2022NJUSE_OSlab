@@ -3,7 +3,7 @@ section .data
 tip1: db "please input the operator X and Y:",0Ah
 
 space: db 0
-tip2: db "invalid input"
+tip2: db "invalid input",0Ah
 
 
 ;未定义数据区
@@ -40,12 +40,44 @@ main:
     ;获取操作符,存入caozuofu
     call getOperatorAndCaozuofu
 
+    ;检查是否符合输入规范，这里检查是否缺少操作数
+    call checkIsValid
 
+    ;
+
+    jmp getin
   endin:
 ;结束程序
     mov eax, 1 
     mov ebx, 0 
     int 80h 
+
+checkIsValid:
+;检查是否是非法输入
+    cmp byte[len1],0
+    je exitProg
+    cmp byte[len2],0
+    je exitProg
+    ;否则正常返回
+    jmp return
+
+  
+  exitProg:
+  ;因为异常故结束程序
+  ;先输出异常信息
+    mov eax,4
+    mov ebx,1
+    mov ecx,tip2
+    mov edx,14
+    int 80h
+
+  ;在退出程序
+    mov eax, 1 
+    mov ebx, 0 
+    int 80h
+
+  return:
+    ret
 
 
 
@@ -94,6 +126,7 @@ getOperatorAndCaozuofu:
     jmp another
 
   end:
+    dec byte[edi]
     popad
     ret
 

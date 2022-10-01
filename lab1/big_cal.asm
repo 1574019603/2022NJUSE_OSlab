@@ -65,16 +65,13 @@ checkIsValid:
   exitProg:
   ;因为异常故结束程序
   ;先输出异常信息
+    pushad
     mov eax,4
     mov ebx,1
     mov ecx,tip2
     mov edx,14
     int 80h
-
-  ;在退出程序
-    mov eax, 1 
-    mov ebx, 0 
-    int 80h
+    popad
 
   return:
     ret

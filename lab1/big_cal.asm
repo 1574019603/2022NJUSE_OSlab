@@ -4,6 +4,9 @@ tip1: db "please input the operator X and Y:",0Ah
 
 space: db 0
 tip2: db "invalid input",0Ah
+space2: db 0
+
+line: db 0Ah
 
 
 ;未定义数据区
@@ -16,6 +19,8 @@ operator2: resb 255
 len2: resb 255
 caozuofu: resb 255;操作符
 result: resb 255;结果
+extra: resb 255
+
 
 
 
@@ -49,13 +54,36 @@ main:
 
     ;开始处理相关运算
     cmp byte[caozuofu],'+'
+    je addtask
+    
+    cmp byte[caozuofu],'*' 
+    je multask
+
+
+
+  addtask:
     call bigAdd
     mov eax,result
     call format_res
-    call 
-    cmp byte[caozuofu],'*'
-    call bigMul                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             
+    call printStr
+    mov eax,line
+    call printStr
+    
+    jmp restart
 
+  multask:
+    call bigMul
+    mov eax,result
+    call format_res
+    call operatorZero
+    call printStr
+    mov eax,line
+    call printStr
+    jmp restart
+  
+
+  restart:
+    call removeAll
     jmp getin
   endin:
 ;结束程序
@@ -83,6 +111,7 @@ checkIsValid:
     mov edx,14
     int 80h
     popad
+    jmp restart
 
   return:
     ret
@@ -151,41 +180,42 @@ printStr:
     mov eax,4
     mov ebx,1
     int 80h
+    pop eax
     pop edx
     pop ebx
     pop ecx
-    pop eax
+    
     ret
 
-printInt:
-;控制台输出数字,数字在eax
-    push   eax
-    push   ecx
-    push   edx
-    push   esi
-    mov    ecx, 0;ecx 存位数
+; printInt:
+; ;控制台输出数字,数字在eax
+;     push   eax
+;     push   ecx
+;     push   edx
+;     push   esi
+;     mov    ecx, 0;ecx 存位数
   
-  divideLoop:
-    inc    ecx       ;存有位数
-    mov    edx, 0
-    mov    esi, 10
-    idiv   esi       ;eax=eax/10
-    add    edx, 48   ;edx存有余数
-    push   edx       ;edx存入栈
-    cmp    eax, 0
-    jnz    divideLoop
-  printLoop:
-    dec    ecx
-    mov    eax, esp
-    call   printStr
-    pop    eax
-    cmp    ecx, 0
-    jnz    printLoop
-    pop    esi
-    pop    edx
-    pop    ecx
-    pop    eax
-    ret
+;   divideLoop:
+;     inc    ecx       ;存有位数
+;     mov    edx, 0
+;     mov    esi, 10
+;     idiv   esi       ;eax=eax/10
+;     add    edx, 48   ;edx存有余数
+;     push   edx       ;edx存入栈
+;     cmp    eax, 0
+;     jnz    divideLoop
+;   printLoop:
+;     dec    ecx
+;     mov    eax, esp
+;     call   printStr
+;     pop    eax
+;     cmp    ecx, 0
+;     jnz    printLoop
+;     pop    esi
+;     pop    edx
+;     pop    ecx
+;     pop    eax
+;     ret
 
 
 
@@ -288,7 +318,7 @@ bigAdd:
 format_res:;将数字转变为10进制格式，如果发生进位会提前输出一
     push edx
     mov ebx,eax
-
+    mov ecx,extra
   toEnd:
     cmp byte[eax],0
     je formatLoop
@@ -310,20 +340,187 @@ format_res:;将数字转变为10进制格式，如果发生进位会提前输出
 		jmp formatLoop_1
 
   formatFinish:
-    mov ecx,0
+    mov byte[ecx],0
     cmp byte[eax],'9'
     ja extraPrint
     pop edx
     ret
 
   extraPrint:
-    inc ecx
+    inc byte[ecx]
     sub byte[eax],10
     cmp byte[eax],'9'
     ja extraPrint
     push eax
     mov eax,ecx
-    call printInt
+    add byte[eax],'0'
+    call printStr
     pop eax
     jmp formatFinish
 
+
+
+
+bigMul:
+    pushad
+    mov ecx,result
+    mov edx,operator1
+    mov ebx,operator2
+    mov esi,0
+    mov edi,0
+
+    mov eax,0
+    add eax,dword[len1]
+    add eax,dword[len2]
+
+  init:;将结果初始化为两数长度和的零
+    cmp eax,0
+    je toEnd_o1
+    mov byte[ecx],'0'
+    dec eax
+    inc ecx
+    jmp init
+
+  toEnd_o1:;使edx指向o1的末尾
+    cmp byte[edx+1],0
+    je toEnd_o2
+    inc edx
+    jmp toEnd_o1
+
+  toEnd_o2:
+    cmp byte[ebx+2],0
+    je multiple
+    inc ebx
+    jmp toEnd_o2
+  multiple:
+    push ebx;此时ebx指向o2的倒数第二个
+    
+    mov eax,0
+    cmp edx,operator1
+    jb finish_multiple
+    mov al,byte[edx];al存o1的1位
+
+    sub al,30h;使其ascii值为对应整数
+    jmp multiple_loop
+
+  mark:
+    dec edx
+    inc esi
+    jmp multiple
+
+  multiple_loop:
+    cmp ebx,operator2
+    jb finish_multiple_loop
+    mov ah,byte[ebx];ah存o2的一位
+
+    push edx
+    mov dl,al;dl存o1的一位
+    sub ah,30h
+    mul ah;现在ax中存着ah*al
+
+    push ecx
+
+    sub ecx,esi
+    sub ecx,edi
+    sub ecx,1
+    cmp byte[ecx],150
+    ja simple_format_byte
+
+  finish_simple_format_byte:
+    add byte[ecx],al
+    pop ecx
+    mov al,dl
+    pop edx
+    dec ebx
+    inc edi
+    jmp multiple_loop
+
+  finish_multiple_loop:
+    mov edi,0
+    pop ebx
+    jmp mark
+
+  finish_multiple:
+    pop ebx
+    popad
+    ret
+
+  simple_format_byte:
+    sub byte[ecx],100
+  	add byte[ecx-2],1
+  	jmp finish_simple_format_byte
+
+
+
+
+
+  
+
+
+
+removeAll:
+  push eax
+  mov eax,input
+  call allZero
+  mov eax,operator1
+  call allZero
+  mov eax,len1
+  call allZero
+  mov eax,operator2
+  call allZero
+  mov eax,len2
+  call allZero
+  mov eax,caozuofu
+  call allZero
+  mov eax,result
+  call allZero
+  mov eax,extra
+  call allZero
+  pop eax
+
+  ret
+
+
+allZero:
+
+  push ebx
+  push ecx
+  mov ecx,eax
+  mov ebx,255
+deleteLoop:
+  cmp ebx,0
+  je endZero
+  mov byte[ecx],0
+  inc ecx
+  dec ebx
+  jmp deleteLoop
+
+endZero:
+  pop ecx
+  pop ebx
+  ret
+
+
+operatorZero:
+    ;去除前面的0
+    push ebx
+    mov ebx,eax
+
+  operatorZero_loop:
+    cmp byte[ebx],'0'
+    jne endoperatorZero_loop
+    inc ebx
+    jmp operatorZero_loop
+
+  endoperatorZero_loop:
+    cmp byte[ebx],0
+    je qianyi
+  realend:
+    mov eax,ebx
+    pop ebx
+    ret
+
+
+  qianyi:
+    dec ebx
+    jmp realend

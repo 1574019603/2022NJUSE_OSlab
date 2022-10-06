@@ -19,7 +19,7 @@ operator2: resb 255
 len2: resb 255
 caozuofu: resb 255;操作符
 result: resb 255;结果
-extra: resb 255
+extra: resb 255 ;进位
 
 
 
@@ -64,7 +64,7 @@ main:
   addtask:
     call bigAdd
     mov eax,result
-    call format_res
+    call format_res;将最后的结果规范化，主要是处理进位的情况
     call printStr
     mov eax,line
     call printStr
@@ -75,7 +75,7 @@ main:
     call bigMul
     mov eax,result
     call format_res
-    call operatorZero
+    call operatorZero;没有此步会出现1*1=01的情况
     call printStr
     mov eax,line
     call printStr
@@ -83,7 +83,7 @@ main:
   
 
   restart:
-    call removeAll
+    call removeAll;因为程序需要连续输入，因此每一次处理过后都要将未定义的内存完全清零
     jmp getin
   endin:
 ;结束程序
@@ -187,37 +187,6 @@ printStr:
     
     ret
 
-; printInt:
-; ;控制台输出数字,数字在eax
-;     push   eax
-;     push   ecx
-;     push   edx
-;     push   esi
-;     mov    ecx, 0;ecx 存位数
-  
-;   divideLoop:
-;     inc    ecx       ;存有位数
-;     mov    edx, 0
-;     mov    esi, 10
-;     idiv   esi       ;eax=eax/10
-;     add    edx, 48   ;edx存有余数
-;     push   edx       ;edx存入栈
-;     cmp    eax, 0
-;     jnz    divideLoop
-;   printLoop:
-;     dec    ecx
-;     mov    eax, esp
-;     call   printStr
-;     pop    eax
-;     cmp    ecx, 0
-;     jnz    printLoop
-;     pop    esi
-;     pop    edx
-;     pop    ecx
-;     pop    eax
-;     ret
-
-
 
 
 ;用于获取字符串长度以输出
@@ -319,7 +288,7 @@ format_res:;将数字转变为10进制格式，如果发生进位会提前输出
     push edx
     mov ebx,eax
     mov ecx,extra
-  toEnd:
+  toEnd:;这一步将eax移向result的尾部
     cmp byte[eax],0
     je formatLoop
     inc eax
@@ -458,7 +427,7 @@ bigMul:
 
 
 
-removeAll:
+removeAll:   ;每次运算过后将相关内存清零
   push eax
   mov eax,input
   call allZero
@@ -481,12 +450,12 @@ removeAll:
   ret
 
 
-allZero:
+allZero:;清零操作
 
   push ebx
   push ecx
   mov ecx,eax
-  mov ebx,255
+  mov ebx,255;因为预先给未定义数据区的大小为255
 deleteLoop:
   cmp ebx,0
   je endZero
@@ -502,7 +471,7 @@ endZero:
 
 
 operatorZero:
-    ;去除前面的0
+    ;去除惩罚结果前面的0
     push ebx
     mov ebx,eax
 
@@ -513,7 +482,7 @@ operatorZero:
     jmp operatorZero_loop
 
   endoperatorZero_loop:
-    cmp byte[ebx],0
+    cmp byte[ebx],0;防止出现0*0=   的情况
     je qianyi
   realend:
     mov eax,ebx

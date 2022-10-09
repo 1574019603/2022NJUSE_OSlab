@@ -335,14 +335,14 @@ bigMul:
     mov ecx,result
     mov edx,operator1
     mov ebx,operator2
-    mov esi,0
-    mov edi,0
+    mov esi,0;esi 代表 o1前移的位数
+    mov edi,0;edi表示o2从末尾前移的位数
 
     mov eax,0
     add eax,dword[len1]
-    add eax,dword[len2]
+    add eax,dword[len2]  ;eax存有两束长度之和
 
-  init:;将结果初始化为两数长度和的零
+  init:;将结果result初始化为两数长度和的零
     cmp eax,0
     je toEnd_o1
     mov byte[ecx],'0'
@@ -361,7 +361,9 @@ bigMul:
     je multiple
     inc ebx
     jmp toEnd_o2
-  multiple:
+
+  multiple:;用于讲操作数一的某一位加载到al,结束条件为edx移动到首位
+
     push ebx;此时ebx指向o2的倒数第二个
     
     mov eax,0
@@ -377,13 +379,13 @@ bigMul:
     inc esi
     jmp multiple
 
-  multiple_loop:
+  multiple_loop:;对操作数1的某一位，让操作数2从倒数第二位乘到第一位
     cmp ebx,operator2
     jb finish_multiple_loop
     mov ah,byte[ebx];ah存o2的一位
 
     push edx
-    mov dl,al;dl存o1的一位
+    mov dl,al;dl存o1的一位,用于后续恢复到al以便进行后续运算
     sub ah,30h
     mul ah;现在ax中存着ah*al
 
@@ -391,17 +393,17 @@ bigMul:
 
     sub ecx,esi
     sub ecx,edi
-    sub ecx,1
+    sub ecx,1;这里因为此时ecx位于结果最后一位再往后一位
     cmp byte[ecx],150
-    ja simple_format_byte
+    ja simple_format_byte;不跳转则进入下面的代码块
 
   finish_simple_format_byte:
-    add byte[ecx],al
+    add byte[ecx],al;将乘法结果加载入ecx
     pop ecx
-    mov al,dl
+    mov al,dl;恢复al为o1的某一位
     pop edx
-    dec ebx
-    inc edi
+    dec ebx;ebx（o2）前移
+    inc edi;代表ebx（o2）前移的位数
     jmp multiple_loop
 
   finish_multiple_loop:

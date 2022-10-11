@@ -3,7 +3,7 @@ section .data
 tip1: db "please input the operator X and Y:",0Ah
 
 space: db 0
-tip2: db "invalid input",0Ah
+tip2: db "Invalid",0Ah
 space2: db 0
 
 line: db 0Ah

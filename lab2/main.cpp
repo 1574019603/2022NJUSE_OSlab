@@ -266,7 +266,7 @@ public:
 };
 
 void Root_Directory::setSizeAndContent(int size) {
-    size = size;
+    this->size = size;
     content = new char[512*((size*32+511)/512)];//为什么加511？最后一个entry独占一个扇区
 }
 

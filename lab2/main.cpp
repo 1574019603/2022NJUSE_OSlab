@@ -357,10 +357,14 @@ public:
                 //判断是目录还是文件
                 if (entry2.Directory_Attribute == 16&&entry2.Directory_Name[0]!='.'){
                     auto sybdir = new FAT_Directory(entry2,fat,imgFile,start);
-                    subDirectorys.push_back(sybdir);
+                    if(sybdir->getName().find("~1")== string::npos){
+                        subDirectorys.push_back(sybdir);
+                    }
                 } else if (entry2.Directory_Attribute == 32 || (entry2.Directory_Attribute == 0&&entry2.Directory_Name[0]!=0)){
                     auto subfile = new FAT_File(fat,entry2,imgFile,start);
-                    files.push_back(subfile);
+                    if(subfile->getName().find("~1")== string::npos){
+                        files.push_back(subfile);
+                    }
                 }
             }
             fatTableId = fat.getNext(fatTableId);
@@ -433,6 +437,7 @@ public:
             printRed(".  ..  ");
         }
         for (FAT_Directory* dir:subDirectorys){
+            if(dir->getName().find("~1")!= string::npos) continue;
             printRed(dir->getName());
             printNormal("  ");
         }
@@ -486,6 +491,8 @@ public:
     void readDir();
 };
 
+void executeCAT(string basicString, FAT12 fat12);
+
 void FAT12::load() {
     ifstream img(address,ios::binary);
     if(!img.is_open()){
@@ -532,7 +539,9 @@ void FAT12::readFile() {
     for(Directory_Entry* ent:rootDirectory.entrys){
         if(ent->Directory_Attribute==32 || (ent->Directory_Attribute==0&&ent->Directory_Name[0]!=0)){
             auto* file = new FAT_File(this->fat1,*ent, this->imgFile, this->dataArea_start);
-            files.push_back(file);
+            if (file->getName().find("~1") == string::npos){
+                files.push_back(file);
+            }
         }
     }
 }
@@ -541,10 +550,26 @@ void FAT12::readDir() {
     for(Directory_Entry* ent:rootDirectory.entrys){
         if(ent->Directory_Attribute == 16){
             auto* directory = new FAT_Directory(*ent, this->fat1,this->imgFile,this->dataArea_start);
-            dirs.push_back(directory);
+            if (directory->getName().find("~1") == string::npos){
+                dirs.push_back(directory);
+            }
         }
     }
 }
+
+//判断
+bool isPath(const string& args,int idx){
+    for(int i=idx;i<args.size();i++){
+        if(args[i]=='-'){
+            break;
+        }
+        else if(args[i]!=' '){
+            return false;
+        }
+    }
+    return true;
+}
+
 
 //获取路径
 string getPathString(const string& args){
@@ -555,7 +580,32 @@ string getPathString(const string& args){
     int index = 0;
     int len = 0;
     bool flag = false;
-    for(int i = 0;i<args.length())
+    for(int i = 0;i<args.length();i++){
+        if (args[i]=='-'){
+            if (isPath(args,i+1)){
+                return "-";
+            }
+        }
+        if (args[i] == ' '&&args[i+1]!='-'&&args[i+1]!=' '){
+            index = i+1;
+            flag = true;
+        }
+        if(i==0&&args[i]!='-'&&args[i+1]!=' '){
+            index = i;
+            flag = true;
+        }
+    }
+    if(!flag) return "";
+    for(int i = index;i<args.length();i++){
+        if(args[i]!=' '){
+            len++;
+        }
+        else{
+            break;
+        }
+    }
+    res = args.substr(index,len);
+    return res;
 }
 
 bool isAllSpace(const string& s){
@@ -604,6 +654,68 @@ int isValid(string& args){
     return hasL?2:1;
 }
 
+//带数字的打印
+void printWithNum(string name,FAT_Directory* dir){
+    if(name[name.size()-1]!='/'){
+        name.append("/");
+    }
+    name.append(dir->getName());
+    printNormal(name);
+    printNormal(" ");
+    printNormal(to_string(dir->getSubDirectorys().size()));
+    printNormal(" ");
+    printNormal(to_string(dir->getFiles().size()));
+    printNormal(":");
+    AnotherLine();
+    dir->printNum();
+    //递归方法
+    for(FAT_Directory* directory:dir->getSubDirectorys()){
+        printWithNum(name,directory);
+    }
+}
+
+//不带数字的打印
+void printWithoutNum(string name,FAT_Directory* dir){
+    if(name[name.size()-1]!='/'){
+        name.append("/");
+    }
+    name.append(dir->getName());
+    printNormal(name);
+    printNormal(":");
+    AnotherLine();
+    dir->print();
+    for(FAT_Directory* d:dir->getSubDirectorys()){
+        printWithoutNum(name,d);
+    }
+}
+
+//获得地址vector
+vector<string> getPaths(string path){
+    vector<string> res;
+    if(path.length() == 0) return res;
+    char seperator = '/';
+    int last_seperator = 0;
+    if(path[0]==seperator){
+        last_seperator = 1;
+    }
+    int len = 0;
+    for(int i=0;i<path.length();i++){
+        if(path.at(i)==seperator){
+            if(len==0){
+                continue;
+            }
+            res.push_back(path.substr(last_seperator,len));
+            last_seperator = i+1;
+            len = 0;
+        }
+        else{
+            len++;
+        }
+    }
+    res.push_back(path.substr(last_seperator));
+    return res;
+}
+
 //处理ls指令
 void executeLS(string args, FAT12& fat12){
     //首先检查命令是否有效
@@ -620,6 +732,26 @@ void executeLS(string args, FAT12& fat12){
     }
 
     bool isLs_l = isvalid==2;
+    string path = getPathString(args);
+    vector<string> paths = getPaths(std::move(path));
+    FAT_Directory* fatDirectory = &fat12.root;
+
+    for (int i = 0; i < paths.size(); i++) {
+        //一层层往下寻找
+        fatDirectory = fatDirectory->searchDirByName(paths[i]);
+        if(fatDirectory == nullptr){
+            string error;
+            error.append("there is no such dir:").append(paths[i]).append("    please check your path");
+            printNormal(error);
+            AnotherLine();
+            return;
+        }
+    }
+    if (isLs_l){
+        printWithNum("/",fatDirectory);
+    } else{
+        printWithoutNum("/",fatDirectory);
+    }
 
 }
 
@@ -659,11 +791,38 @@ int main() {
             AnotherLine();
         } else if(instruct == "ls"){
             executeLS(input,fat12);
+        } else if (instruct=="cat"){
+            executeCAT(input,fat12);
+        } else{
+            printNormal("there is no such opcode!please type the right one.");
+            AnotherLine();
+        }
+        //开始下一次循环
+        printNormal("> ");
+        int index = 0;
+        getline(cin,input);
+        instruct = "";
+        for(;index<input.length();index++){
+            if(input[index] == ' '){
+                instruct = input.substr(0,index);
+                input = input.substr(index+1);
+                break;
+            }
+        }
+        if(instruct.empty()){
+            instruct = input;
+            input = "";
         }
     }
 
+    printNormal("thank you for using, see you");
+    AnotherLine();
+    return 0;
 
 
+}
+
+void executeCAT(string basicString, FAT12 fat12) {
 
 }
 

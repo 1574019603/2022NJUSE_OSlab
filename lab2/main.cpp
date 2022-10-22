@@ -445,6 +445,7 @@ public:
             printNormal(f->getName());
             printNormal("  ");
         }
+        AnotherLine();
     }
     //搜索函数
     FAT_Directory* searchDirByName(const string& thename){

@@ -599,7 +599,7 @@ void printWithoutNum(string name,FAT_Directory* dir){
     }
 }
 //检查输入形式是否有效
-int checkIsValid(vector<string> args){
+int checkIsValid(vector<string> args, string instruct){
     if (args.empty()){
         return 1;//代表ls
     }//下面检查是否是ls -l
@@ -619,7 +619,7 @@ int checkIsValid(vector<string> args){
     }
     //下面检查是否有不符合的参数
     for (int i = 0; i < args.size(); ++i) {
-        if (args[i][0] != '/' && args[i]!= "-l" && args[i]!="-ll"){
+        if (args[i][0] != '/' && args[i]!= "-l" && args[i]!="-ll" && instruct!="cat"){
             return 0;
         }
     }
@@ -685,7 +685,42 @@ void operateLS(FAT12& fat12, int flag, vector<string> paths){
 }
 
 void operateCAT(FAT12& fat12, vector<string> paths){
-
+    FAT_Directory* fatDirectory = &fat12.root;
+    for (int i = 0; i < paths.size(); i++) {
+        if (i == paths.size()-1){
+            FAT_File* file = fatDirectory->searchFileByName(paths[i]);
+            if(file == nullptr){
+                printNormal("no such file! please check your input!");
+                AnotherLine();
+                return;
+            } else{
+                printNormal(file->getContent());
+                AnotherLine();
+            }
+        } else{
+            if(paths[i] == "."){
+                continue;
+            } else if(paths[i] == ".."){
+                FAT_Directory* f = fatDirectory->father;
+                //空指针代表根目录
+                if (f == nullptr){
+                    fatDirectory = &fat12.root;
+                } else {
+                    fatDirectory = f;
+                }
+            } else{
+                fatDirectory = fatDirectory->searchDirByName(paths[i]);
+                //当名字不存在时
+                if (fatDirectory == nullptr){
+                    string error;
+                    error.append("there is no such dir:").append(paths[i]).append("    please check your path");
+                    printNormal(error);
+                    AnotherLine();
+                    return;
+                }
+            }
+        }
+    }
 }
 
 int main() {
@@ -720,7 +755,7 @@ int main() {
             args.push_back(temp);
         }
         //对错误进行提醒
-        int flag = checkIsValid(args);
+        int flag = checkIsValid(args,instruct);
         if(flag == 0){
             printNormal("unvalid input");
             AnotherLine();
@@ -731,6 +766,24 @@ int main() {
             AnotherLine();
             continue;
         }
+        if (args.size()>1 && instruct == "cat"){
+            printNormal("more than one address!");
+            AnotherLine();
+            continue;
+        }
+
+        if (args.size() == 0 && instruct == "cat"){
+            printNormal("no address! please input one!");
+            AnotherLine();
+            continue;
+        }
+
+	if (instruct == "cat"){
+		if(args[0][0] != '/'){
+			args[0] = "/"+args[0];
+		}
+	}
+
         //获取有效地址
         vector<string> paths = getAbsolutePath(args);
 
@@ -738,6 +791,7 @@ int main() {
             //ls指令
             operateLS(fat12,flag,paths);
         } else if (instruct == "cat"){
+
             //cat指令
             operateCAT(fat12,paths);
         } else if( instruct == "exit"){

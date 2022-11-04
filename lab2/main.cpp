@@ -2,6 +2,7 @@
 #include <fstream>
 #include <vector>
 #include <string>
+#include <sstream>
 
 using namespace std;
 
@@ -342,11 +343,14 @@ private:
     string name;
     vector<FAT_File*> files;
     vector<FAT_Directory*> subDirectorys;
+    //保留父目录的名称
 
 public:
+    FAT_Directory* father;
     //三种构造函数
     FAT_Directory() = default;
-    FAT_Directory(Directory_Entry entry,FAT_table fat, vector<cluster*> imgFile, int start):name(entry.Directory_Name,11){
+    FAT_Directory(Directory_Entry entry,FAT_table fat, vector<cluster*> imgFile, int start, FAT_Directory* thefather):name(entry.Directory_Name,11){
+        this->father = thefather;
         int fatTableId = (int)((unsigned char)entry.Directory_FATID[0] + (unsigned char)entry.Directory_FATID[1]*256);
 
         while(fatTableId!=-1){
@@ -356,7 +360,7 @@ public:
                 Directory_Entry entry2(imgFile[index]->content,i);
                 //判断是目录还是文件
                 if (entry2.Directory_Attribute == 16&&entry2.Directory_Name[0]!='.'){
-                    auto sybdir = new FAT_Directory(entry2,fat,imgFile,start);
+                    auto sybdir = new FAT_Directory(entry2,fat,imgFile,start,this);
                     if(sybdir->getName().find("~1")== string::npos){
                         subDirectorys.push_back(sybdir);
                     }
@@ -374,6 +378,7 @@ public:
         this->files = std::move(subFs);
         this->subDirectorys =  std::move(subDs);
         this->name = std::move(name);
+        this->father = nullptr;
     }
 
     //get方法
@@ -550,7 +555,7 @@ void FAT12::readFile() {
 void FAT12::readDir() {
     for(Directory_Entry* ent:rootDirectory.entrys){
         if(ent->Directory_Attribute == 16){
-            auto* directory = new FAT_Directory(*ent, this->fat1,this->imgFile,this->dataArea_start);
+            auto* directory = new FAT_Directory(*ent, this->fat1,this->imgFile,this->dataArea_start, nullptr);
             if (directory->getName().find("~1") == string::npos){
                 dirs.push_back(directory);
             }
@@ -559,101 +564,101 @@ void FAT12::readDir() {
 }
 
 //判断
-bool isPath(const string& args,int idx){
-    for(int i=idx;i<args.size();i++){
-        if(args[i]=='-'){
-            break;
-        }
-        else if(args[i]!=' '){
-            return false;
-        }
-    }
-    return true;
-}
+//bool isPath(const string& args,int idx){
+//    for(int i=idx;i<args.size();i++){
+//        if(args[i]=='-'){
+//            break;
+//        }
+//        else if(args[i]!=' '){
+//            return false;
+//        }
+//    }
+//    return true;
+//}
 
 
 //获取路径
-string getPathString(const string& args){
-    if(args.empty()) return "";
-    if(args.length() == 1) return args;
-
-    string res;
-    int index = 0;
-    int len = 0;
-    bool flag = false;
-    for(int i = 0;i<args.length();i++){
-        if (args[i]=='-'){
-            if (isPath(args,i+1)){
-                return "-";
-            }
-        }
-        if (args[i] == ' '&&args[i+1]!='-'&&args[i+1]!=' '){
-            index = i+1;
-            flag = true;
-        }
-        if(i==0&&args[i]!='-'&&args[i+1]!=' '){
-            index = i;
-            flag = true;
-        }
-    }
-    if(!flag) return "";
-    for(int i = index;i<args.length();i++){
-        if(args[i]!=' '){
-            len++;
-        }
-        else{
-            break;
-        }
-    }
-    res = args.substr(index,len);
-    return res;
-}
-
-bool isAllSpace(const string& s){
-    if(s.empty()) return true;
-    for(char c:s){
-        if(c!=' ') return false;
-    }
-    return true;
-}
+//string getPathString(const string& args){
+//    if(args.empty()) return "";
+//    if(args.length() == 1) return args;
+//
+//    string res;
+//    int index = 0;
+//    int len = 0;
+//    bool flag = false;
+//    for(int i = 0;i<args.length();i++){
+//        if (args[i]=='-'){
+//            if (isPath(args,i+1)){
+//                return "-";
+//            }
+//        }
+//        if (args[i] == ' '&&args[i+1]!='-'&&args[i+1]!=' '){
+//            index = i+1;
+//            flag = true;
+//        }
+//        if(i==0&&args[i]!='-'&&args[i+1]!=' '){
+//            index = i;
+//            flag = true;
+//        }
+//    }
+//    if(!flag) return "";
+//    for(int i = index;i<args.length();i++){
+//        if(args[i]!=' '){
+//            len++;
+//        }
+//        else{
+//            break;
+//        }
+//    }
+//    res = args.substr(index,len);
+//    return res;
+//}
+//
+//bool isAllSpace(const string& s){
+//    if(s.empty()) return true;
+//    for(char c:s){
+//        if(c!=' ') return false;
+//    }
+//    return true;
+//}
 
 //检查命令是否有效
-int isValid(string& args){
-    if (args.empty()){
-        return 1;//代表是ls
-    }
-
-    int n = 0;
-    int m = 0;
-    bool hasL = false;
-    for (char arg:args){
-        if (arg == '-'){
-            if (n == 0){
-                n = 1;
-            } else{
-                return 0;//代表输入无效
-            }
-        } else if(arg == ' '){
-            n = 0;
-        } else{
-            if (n==0){
-                continue;
-            } else if(arg == 'l'){
-                hasL = true;
-            } else{
-                return 0;//无效输入
-            }
-        }
-    }
-    //接下来看重复地址
-    for (int i = 0; i <args.length()-1 ; i++) {
-        if((args[i]==' '&&args[i+1]!='-'&&args[i+1]!=' ') || (i == 0&&args[i]!='-'&&args[i+1]!=' '&&args[i+1]!='-')){
-            m++;//记录地址个数
-            if(m>1) return 3;//代表重复地址
-        }
-    }
-    return hasL?2:1;
-}
+//int isValid(string& args){
+//    if (args.empty()){
+//        return 1;//代表是ls
+//    }
+//
+//    int n = 0;
+//    int m = 0;
+//    bool hasL = false;
+//    for (char arg:args){
+//        if (arg == '-'){
+//            if (n == 0){
+//                n = 1;
+//            } else{
+//                return 0;//代表输入无效
+//            }
+//        } else if(arg == ' '){
+//            n = 0;
+//        } else{
+//            if (n==0){
+//                continue;
+//            } else if(arg == 'l'){
+//                hasL = true;
+//            } else{
+//                return 0;//无效输入
+//            }
+//        }
+//    }
+//    //接下来看重复地址
+//    for (int i = 0; i <args.length()-1 ; i++) {
+//        if((args[i]==' '&&args[i+1]!='-'&&args[i+1]!=' ') || (i == 0&&args[i]!='-'&&args[i+1]!=' '&&args[i+1]!='-')){
+//            m++;//记录地址个数
+//            if(m>1) return 3;//代表重复地址
+//        }
+//    }
+//    return hasL?2:1;
+//}
 
 //带数字的打印
 void printWithNum(string name,FAT_Directory* dir){
@@ -718,41 +723,131 @@ vector<string> getPaths(string path){
 }
 
 //处理ls指令
-void executeLS(string args, FAT12& fat12){
-    //首先检查命令是否有效
-    int isvalid = isValid(args);
-    if(isvalid == 0){
-        printNormal("wrong parameter!");
-        AnotherLine();
-        return;
-    }
-    if(isvalid == 3){
-        printNormal("you have input more than one path");
-        AnotherLine();
-        return;
-    }
+//void executeLS(string args, FAT12& fat12){
+//    //首先检查命令是否有效
+//    int isvalid = isValid(args);
+//    if(isvalid == 0){
+//        printNormal("wrong parameter!");
+//        AnotherLine();
+//        return;
+//    }
+//    if(isvalid == 3){
+//        printNormal("you have input more than one path");
+//        AnotherLine();
+//        return;
+//    }
+//
+//    bool isLs_l = isvalid==2;
+//    string path = getPathString(args);
+//    vector<string> paths = getPaths(std::move(path));
+//    FAT_Directory* fatDirectory = &fat12.root;
+//
+//    for (int i = 0; i < paths.size(); i++) {
+//        //一层层往下寻找
+//        fatDirectory = fatDirectory->searchDirByName(paths[i]);
+//        if(fatDirectory == nullptr){
+//            string error;
+//            error.append("there is no such dir:").append(paths[i]).append("    please check your path");
+//            printNormal(error);
+//            AnotherLine();
+//            return;
+//        }
+//    }
+//    if (isLs_l){
+//        printWithNum("/",fatDirectory);
+//    } else{
+//        printWithoutNum("/",fatDirectory);
+//    }
+//
+//}
 
-    bool isLs_l = isvalid==2;
-    string path = getPathString(args);
-    vector<string> paths = getPaths(std::move(path));
-    FAT_Directory* fatDirectory = &fat12.root;
-
-    for (int i = 0; i < paths.size(); i++) {
-        //一层层往下寻找
-        fatDirectory = fatDirectory->searchDirByName(paths[i]);
-        if(fatDirectory == nullptr){
-            string error;
-            error.append("there is no such dir:").append(paths[i]).append("    please check your path");
-            printNormal(error);
-            AnotherLine();
-            return;
+//检查输入形式是否有效
+int checkIsValid(vector<string> args){
+    if (args.empty()){
+        return 1;//代表ls
+    }//下面检查是否是ls -l
+    bool hasL = false;
+    for(int i = 0;i< args.size();i++){
+        if (args[i] == "-l" || args[i] == "-ll"){
+            hasL = true;
         }
     }
-    if (isLs_l){
+    //下面检查是否有重复地址
+    int numOfAddress = 0;
+    for (int i = 0; i < args.size(); i++) {
+        if (args[i][0] == '/'){
+            numOfAddress++;
+        }
+        if (numOfAddress>1) return 3;//代表地址重复
+    }
+    //下面检查是否有不符合的参数
+    for (int i = 0; i < args.size(); ++i) {
+        if (args[i][0] != '/' && args[i]!= "-l" && args[i]!="-ll"){
+            return 0;
+        }
+    }
+
+    return hasL?2:1;
+}
+
+//获取绝对地址
+vector<string> getAbsolutePath(vector<string> args){
+    vector<string> res;
+    string path = "";
+    for (int i = 0; i < args.size(); i++) {
+        if(args[i][0] == '/'){
+            path = args[i];
+            break;
+        }
+    }
+    if (path == ""){
+        return res;
+    }
+    //接下来分割path
+    istringstream str(path);
+    string out;
+    while (str.good()) {
+        getline(str, out, '/');
+        if (!out.empty())
+            res.push_back(out);
+    }
+    return res;
+}
+
+void operateLS(FAT12& fat12, int flag, vector<string> paths){
+    FAT_Directory* fatDirectory = &fat12.root;
+    for (int i = 0; i < paths.size(); i) {
+        if(paths[i] == "."){
+            continue;
+        } else if(paths[i] == ".."){
+            FAT_Directory* f = fatDirectory->father;
+            //空指针代表根目录
+            if (f == nullptr){
+                fatDirectory = &fat12.root;
+            } else {
+                fatDirectory = f;
+            }
+        } else{
+            fatDirectory = fatDirectory->searchDirByName(paths[i]);
+            //当名字不存在时
+            if (fatDirectory == nullptr){
+                string error;
+                error.append("there is no such dir:").append(paths[i]).append("    please check your path");
+                printNormal(error);
+                AnotherLine();
+                return;
+            }
+        }
+    }
+
+    if (flag == 2){
         printWithNum("/",fatDirectory);
     } else{
         printWithoutNum("/",fatDirectory);
     }
+}
+
+void operateCAT(FAT12& fat12, vector<string> paths){
 
 }
 
@@ -768,62 +863,107 @@ int main() {
     AnotherLine();
     printNormal("now please enter your instructions");
     AnotherLine();
-    printNormal("> ");
-    string instruct;//指令
+    while(true){
+        printNormal("> ");
+        string instruct;//指令
+        vector<string> args;
+        string input;
+        getline(cin,input);
 
-    string input;
-    getline(cin,input);
-    for(int i = 0;i<input.length();i++){
-        if(input[i] == ' '){
-            instruct = input.substr(0,i);
-            input = input.substr(i+1);
-            break;
-        }
-    }
-    if(instruct.empty()){
-        instruct = input;
-        input = "";
-    }
-    //开始循环处理指令
-
-    while (instruct!="exit"||!isAllSpace(input)){
+        //对字符串进行分割，便于后续处理
+        istringstream str(input);
+        string temp;
+        str >> instruct;
         if (instruct.length()<=1){
             printNormal("your instruction is too short, please input again!");
             AnotherLine();
-        } else if(instruct == "ls"){
-            executeLS(input,fat12);
-        } else if (instruct=="cat"){
-            executeCAT(input,fat12);
+            continue;
+        }
+        while(str>>temp){
+            args.push_back(temp);
+        }
+        //对错误进行提醒
+        int flag = checkIsValid(args);
+        if(flag == 0){
+            printNormal("unvalid input");
+            AnotherLine();
+            continue;
+        }
+        if (flag == 3){
+            printNormal("more than one address!");
+            AnotherLine();
+            continue;
+        }
+        //获取有效地址
+        vector<string> paths = getAbsolutePath(args);
+
+        if (instruct == "ls"){
+            //ls指令
+            operateLS(fat12,flag,paths);
+        } else if (instruct == "cat"){
+            //cat指令
+            operateCAT(fat12,paths);
+        } else if( instruct == "exit"){
+            //退出
+            break;
         } else{
             printNormal("there is no such opcode!please type the right one.");
             AnotherLine();
         }
-        //开始下一次循环
-        printNormal("> ");
-        int index = 0;
-        getline(cin,input);
-        instruct = "";
-        for(;index<input.length();index++){
-            if(input[index] == ' '){
-                instruct = input.substr(0,index);
-                input = input.substr(index+1);
-                break;
-            }
-        }
-        if(instruct.empty()){
-            instruct = input;
-            input = "";
-        }
     }
 
-    printNormal("thank you for using, see you");
-    AnotherLine();
-    return 0;
 
 
-}
+    {//    string input;
+//    getline(cin,input);
+//    for(int i = 0;i<input.length();i++){
+//        if(input[i] == ' '){
+//            instruct = input.substr(0,i);
+//            input = input.substr(i+1);
+//            break;
+//        }
+//    }
+//    if(instruct.empty()){
+//        instruct = input;
+//        input = "";
+//    }
+//    //开始循环处理指令
+//
+//    while (instruct!="exit"||!isAllSpace(input)){
+//        if (instruct.length()<=1){
+//            printNormal("your instruction is too short, please input again!");
+//            AnotherLine();
+//        } else if(instruct == "ls"){
+//            executeLS(input,fat12);
+//        } else if (instruct=="cat"){
+//            executeCAT(input,fat12);
+//        } else{
+//            printNormal("there is no such opcode!please type the right one.");
+//            AnotherLine();
+//        }
+//        //开始下一次循环
+//        printNormal("> ");
+//        int index = 0;
+//        getline(cin,input);
+//        instruct = "";
+//        for(;index<input.length();index++){
+//            if(input[index] == ' '){
+//                instruct = input.substr(0,index);
+//                input = input.substr(index+1);
+//                break;
+//            }
+//        }
+//        if(instruct.empty()){
+//            instruct = input;
+//            input = "";
+//        }
+//    }
+//
+//    printNormal("thank you for using, see you");
+//    AnotherLine();
+//    return 0;
 
-void executeCAT(string basicString, FAT12 fat12) {
+    }
 
 }
 

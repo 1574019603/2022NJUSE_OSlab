@@ -349,6 +349,14 @@ public:
     FAT_Directory* father;
     //三种构造函数
     FAT_Directory() = default;
+    bool hasInvalidName(string name){
+        for (int i = 0; i < name.size(); ++i) {
+            if (((name[i]>'z'||name[i]<'a')&&(name[i]>'Z'||name[i]<'A')&&(name[i]<'0'||name[i]>'9')) && name[i]!='.'){
+                return true;
+            }
+        }
+        return false;
+    }
     FAT_Directory(Directory_Entry entry,FAT_table fat, vector<cluster*> imgFile, int start, FAT_Directory* thefather):name(entry.Directory_Name,11){
         this->father = thefather;
         int fatTableId = (int)((unsigned char)entry.Directory_FATID[0] + (unsigned char)entry.Directory_FATID[1]*256);
@@ -361,12 +369,13 @@ public:
                 //判断是目录还是文件
                 if (entry2.Directory_Attribute == 16&&entry2.Directory_Name[0]!='.'){
                     auto sybdir = new FAT_Directory(entry2,fat,imgFile,start,this);
-                    if(sybdir->getName().find("~1")== string::npos){
+                    //sybdir->getName().find("~1")== string::npos
+                    if(!hasInvalidName(sybdir->getName())){
                         subDirectorys.push_back(sybdir);
                     }
                 } else if (entry2.Directory_Attribute == 32 || (entry2.Directory_Attribute == 0&&entry2.Directory_Name[0]!=0)){
                     auto subfile = new FAT_File(fat,entry2,imgFile,start);
-                    if(subfile->getName().find("~1")== string::npos){
+                    if(!hasInvalidName(subfile->getName())){
                         files.push_back(subfile);
                     }
                 }
@@ -495,6 +504,14 @@ public:
     void init();//初始化FAT12各个部分
     void readFile();
     void readDir();
+    bool hasInvalidName(string name){
+        for (int i = 0; i < name.size(); ++i) {
+            if (((name[i]>'z'||name[i]<'a')&&(name[i]>'Z'||name[i]<'A')&&(name[i]<'0'||name[i]>'9')) && name[i]!='.'){
+                return true;
+            }
+        }
+        return false;
+    }
 };
 
 void executeCAT(string basicString, FAT12 fat12);
@@ -543,9 +560,9 @@ void FAT12::init() {
 
 void FAT12::readFile() {
     for(Directory_Entry* ent:rootDirectory.entrys){
-        if(ent->Directory_Attribute==32 || (ent->Directory_Attribute==0&&ent->Directory_Name[0]!=0)){
+        if(ent->Directory_Attribute==32){
             auto* file = new FAT_File(this->fat1,*ent, this->imgFile, this->dataArea_start);
-            if (file->getName().find("~1") == string::npos){
+            if (!hasInvalidName(file->getName())){
                 files.push_back(file);
             }
         }
@@ -554,9 +571,9 @@ void FAT12::readFile() {
 
 void FAT12::readDir() {
     for(Directory_Entry* ent:rootDirectory.entrys){
-        if(ent->Directory_Attribute == 16){
+        if(ent->Directory_Attribute == 16 ){
             auto* directory = new FAT_Directory(*ent, this->fat1,this->imgFile,this->dataArea_start, nullptr);
-            if (directory->getName().find("~1") == string::npos){
+            if (!hasInvalidName(directory->getName())){
                 dirs.push_back(directory);
             }
         }
@@ -605,10 +622,11 @@ int checkIsValid(vector<string> args, string instruct){
     }//下面检查是否是ls -l
     bool hasL = false;
     for(int i = 0;i< args.size();i++){
-        if (args[i] == "-l" || args[i] == "-ll"){
+        if (args[i].find("-l") != string::npos){
             hasL = true;
         }
     }
+    
     //下面检查是否有重复地址
     int numOfAddress = 0;
     for (int i = 0; i < args.size(); i++) {
@@ -619,9 +637,21 @@ int checkIsValid(vector<string> args, string instruct){
     }
     //下面检查是否有不符合的参数
     for (int i = 0; i < args.size(); ++i) {
-        if (args[i][0] != '/' && args[i]!= "-l" && args[i]!="-ll" && instruct!="cat"){
-            return 0;
+        if (instruct != "cat"){
+            if (args[i][0] == '-'){
+                if (args[i] == "-") return 0;
+                for(int j = 1;j<args[i].length();j++){
+                    if (args[i][j]!='l'){
+                        return 0;
+                    }
+                }
+            } else if(args[i][0] == '/'){
+                continue;
+            } else{
+                return 0;
+            }
         }
+
     }
 
     return hasL?2:1;
@@ -754,6 +784,11 @@ int main() {
         while(str>>temp){
             args.push_back(temp);
         }
+	for (int i = 0;i<args.size();i++){
+        if (args[i][0] != '-' && args[i][0] != '/'){
+            args[i] = '/' + args[i];
+        }
+    }
         //对错误进行提醒
         int flag = checkIsValid(args,instruct);
         if(flag == 0){
@@ -803,58 +838,8 @@ int main() {
         }
     }
 
-
-
-    {//    string input;
-//    getline(cin,input);
-//    for(int i = 0;i<input.length();i++){
-//        if(input[i] == ' '){
-//            instruct = input.substr(0,i);
-//            input = input.substr(i+1);
-//            break;
-//        }
-//    }
-//    if(instruct.empty()){
-//        instruct = input;
-//        input = "";
-//    }
-//    //开始循环处理指令
-//
-//    while (instruct!="exit"||!isAllSpace(input)){
-//        if (instruct.length()<=1){
-//            printNormal("your instruction is too short, please input again!");
-//            AnotherLine();
-//        } else if(instruct == "ls"){
-//            executeLS(input,fat12);
-//        } else if (instruct=="cat"){
-//            executeCAT(input,fat12);
-//        } else{
-//            printNormal("there is no such opcode!please type the right one.");
-//            AnotherLine();
-//        }
-//        //开始下一次循环
-//        printNormal("> ");
-//        int index = 0;
-//        getline(cin,input);
-//        instruct = "";
-//        for(;index<input.length();index++){
-//            if(input[index] == ' '){
-//                instruct = input.substr(0,index);
-//                input = input.substr(index+1);
-//                break;
-//            }
-//        }
-//        if(instruct.empty()){
-//            instruct = input;
-//            input = "";
-//        }
-//    }
-//
-//    printNormal("thank you for using, see you");
-//    AnotherLine();
-//    return 0;
-
-    }
+    printNormal("thanks!");
+    AnotherLine();
 
 }
 

@@ -15,14 +15,14 @@
 #include "global.h"
 #include "proto.h"
 
-
+void cleanTheScreen();
 /*======================================================================*
                             kernel_main
  *======================================================================*/
 PUBLIC int kernel_main()
 {
 	disp_str("-----\"kernel_main\" begins-----\n");
-
+    cleanTheScreen();
 	TASK*		p_task		= task_table;
 	PROCESS*	p_proc		= proc_table;
 	char*		p_task_stack	= task_stack + STACK_SIZE_TOTAL;
@@ -97,8 +97,9 @@ void TestA()
 {
 	int i = 0;
 	while (1) {
-		/* disp_str("A."); */
-		milli_delay(10);
+        cleanTheScreen();
+        init_all_screen();
+        milli_delay(100000);
 	}
 }
 
@@ -124,4 +125,14 @@ void TestC()
 		/* disp_str("C."); */
 		milli_delay(10);
 	}
+}
+
+
+//清理屏幕的函数
+void cleanTheScreen(){
+    disp_pos = 0;
+    for (int i = 0; i < SCREEN_SIZE; ++i) {
+        disp_str(" ");
+    }
+    disp_pos = 0;
 }

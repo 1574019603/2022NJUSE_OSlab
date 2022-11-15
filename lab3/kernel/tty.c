@@ -45,6 +45,15 @@ PUBLIC void task_tty()
 	}
 }
 
+PUBLIC void init_all_screen(){
+    TTY *p_tty;
+    for (p_tty = TTY_FIRST; p_tty < TTY_END; p_tty++)
+    {
+        init_screen(p_tty);
+    }
+    select_console(0);
+}
+
 /*======================================================================*
 			   init_tty
  *======================================================================*/

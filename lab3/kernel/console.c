@@ -25,6 +25,8 @@
 PRIVATE void set_cursor(unsigned int position);
 PRIVATE void set_video_start_addr(u32 addr);
 PRIVATE void flush(CONSOLE* p_con);
+PRIVATE void push(CONSOLE* p_con, unsigned int index);
+PRIVATE unsigned int pop(CONSOLE* p_con);
 
 /*======================================================================*
 			   init_screen
@@ -43,6 +45,8 @@ PUBLIC void init_screen(TTY* p_tty)
 
 	/* 默认光标位置在最开始处 */
 	p_tty->p_console->cursor = p_tty->p_console->original_addr;
+    p_tty->p_console->cursor_Stack->now_index = 0;
+    p_tty->p_console->cursor_Stack->length = SCREEN_SIZE;
 
 	if (nr_tty == 0) {
 		/* 第一个控制台沿用原来的光标位置 */
@@ -79,6 +83,7 @@ PUBLIC void out_char(CONSOLE* p_con, char ch)
 	case '\n':
 		if (p_con->cursor < p_con->original_addr +
 		    p_con->v_mem_limit - SCREEN_WIDTH) {
+            push(p_con,p_con->cursor);
 			p_con->cursor = p_con->original_addr + SCREEN_WIDTH * 
 				((p_con->cursor - p_con->original_addr) /
 				 SCREEN_WIDTH + 1);
@@ -86,14 +91,21 @@ PUBLIC void out_char(CONSOLE* p_con, char ch)
 		break;
 	case '\b':
 		if (p_con->cursor > p_con->original_addr) {
-			p_con->cursor--;
-			*(p_vmem-2) = ' ';
-			*(p_vmem-1) = DEFAULT_CHAR_COLOR;
+            unsigned int index = pop(p_con);
+            int j = 0;
+            while (p_con->cursor > index){
+                p_con->cursor--;
+                *(p_vmem-2 - j*2) = ' ';
+                *(p_vmem-1 - j*2) = DEFAULT_CHAR_COLOR;
+                j++;
+            }
+
 		}
 		break;
         //新加的输出TAB功能
         case '\t':
             if (p_con->cursor < p_con->original_addr + p_con->v_mem_limit - 4){
+                push(p_con,p_con->cursor);
                 for (int i = 0; i < 4; ++i) {
                     *p_vmem++ = ' ';
                     *p_vmem++ = DEFAULT_CHAR_COLOR;
@@ -104,6 +116,7 @@ PUBLIC void out_char(CONSOLE* p_con, char ch)
 	default:
 		if (p_con->cursor <
 		    p_con->original_addr + p_con->v_mem_limit - 1) {
+            push(p_con,p_con->cursor);
 			*p_vmem++ = ch;
 			*p_vmem++ = DEFAULT_CHAR_COLOR;
 			p_con->cursor++;
@@ -198,5 +211,23 @@ PUBLIC void scroll_screen(CONSOLE* p_con, int direction)
 
 	set_video_start_addr(p_con->current_start_addr);
 	set_cursor(p_con->cursor);
+}
+
+PRIVATE void push(CONSOLE* p_con, unsigned int index){
+    if(p_con->cursor_Stack->now_index<p_con->cursor_Stack->length){
+        p_con->cursor_Stack->array[p_con->cursor_Stack->now_index] = index;
+        p_con->cursor_Stack->now_index++;
+    }
+}
+
+
+PRIVATE unsigned int pop(CONSOLE* p_con){
+    if (p_con->cursor_Stack->now_index>=1){
+        unsigned int res = p_con->cursor_Stack->array[p_con->cursor_Stack->now_index-1];
+        p_con->cursor_Stack->now_index--;
+        return res;
+    } else{
+        return p_con->cursor_Stack->length+1;
+    }
 }
 

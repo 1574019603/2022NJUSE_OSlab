@@ -37,7 +37,7 @@ PUBLIC void init_screen(TTY* p_tty)
 	int v_mem_size = V_MEM_SIZE >> 1;	/* 显存总大小 (in WORD) */
 
 	int con_v_mem_size                   = v_mem_size / NR_CONSOLES;
-	p_tty->p_console->original_addr      = nr_tty * con_v_mem_size;
+	p_tty->p_console->original_addr      = nr_tty * con_v_mem_size;//当前终端的起始地址
 	p_tty->p_console->v_mem_limit        = con_v_mem_size;
 	p_tty->p_console->current_start_addr = p_tty->p_console->original_addr;
 
@@ -61,6 +61,7 @@ PUBLIC void init_screen(TTY* p_tty)
 /*======================================================================*
 			   is_current_console
 *======================================================================*/
+//判断是否是当前的console
 PUBLIC int is_current_console(CONSOLE* p_con)
 {
 	return (p_con == &console_table[nr_current_console]);
@@ -90,6 +91,16 @@ PUBLIC void out_char(CONSOLE* p_con, char ch)
 			*(p_vmem-1) = DEFAULT_CHAR_COLOR;
 		}
 		break;
+        //新加的输出TAB功能
+        case '\t':
+            if (p_con->cursor < p_con->original_addr + p_con->v_mem_limit - 4){
+                for (int i = 0; i < 4; ++i) {
+                    *p_vmem++ = ' ';
+                    *p_vmem++ = DEFAULT_CHAR_COLOR;
+                    p_con->cursor++;
+                }
+                break;
+            }
 	default:
 		if (p_con->cursor <
 		    p_con->original_addr + p_con->v_mem_limit - 1) {

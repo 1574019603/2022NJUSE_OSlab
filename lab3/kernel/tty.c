@@ -94,6 +94,9 @@ PUBLIC void in_process(TTY* p_tty, u32 key)
 				scroll_screen(p_tty->p_console, SCR_UP);
 			}
 			break;
+                    case TAB:
+                        put_key(p_tty, '\t');
+                        break;
 		case F1:
 		case F2:
 		case F3:
@@ -120,6 +123,7 @@ PUBLIC void in_process(TTY* p_tty, u32 key)
 /*======================================================================*
 			      put_key
 *======================================================================*/
+//将要输出的字符放入tty的缓冲区
 PRIVATE void put_key(TTY* p_tty, u32 key)
 {
 	if (p_tty->inbuf_count < TTY_IN_BYTES) {

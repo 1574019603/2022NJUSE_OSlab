@@ -95,11 +95,15 @@ PUBLIC int kernel_main()
  *======================================================================*/
 void TestA()
 {
-	int i = 0;
 	while (1) {
-        cleanTheScreen();
-        init_all_screen();
-        milli_delay(100000);
+        if(mode == 0){
+            cleanTheScreen();
+            init_all_screen();
+            milli_delay(100000);
+        } else{
+            milli_delay(10);
+        }
+
 	}
 }
 

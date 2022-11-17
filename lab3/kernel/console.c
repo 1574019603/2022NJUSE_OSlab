@@ -46,6 +46,7 @@ PUBLIC void init_screen(TTY* p_tty)
 	/* 默认光标位置在最开始处 */
 	p_tty->p_console->cursor = p_tty->p_console->original_addr;
     p_tty->p_console->cursor_Stack->now_index = 0;
+    p_tty->p_console->lastNormalCursor = p_tty->p_console->cursor;
     p_tty->p_console->cursor_Stack->length = SCREEN_SIZE;
 
 	if (nr_tty == 0) {
@@ -78,16 +79,52 @@ PUBLIC int is_current_console(CONSOLE* p_con)
 PUBLIC void out_char(CONSOLE* p_con, char ch)
 {
 	u8* p_vmem = (u8*)(V_MEM_BASE + p_con->cursor * 2);
+    //屏蔽输入
+    if(mode == 2){
+        if(ch == '\r'){
+            mode = 0;
+        } else{
+            return;
+        }
+    }
 
 	switch(ch) {
+        case '\r':
+            if(mode == 1){
+                p_con->lastNormalCursor = p_con->cursor;
+            } else{
+                if(p_con->cursor > p_con->original_addr){
+                    int j = 0;
+                    while (p_con->cursor > p_con->lastNormalCursor){
+                        unsigned int index = pop(p_con);
+                        while (p_con->cursor > index){
+                            p_con->cursor--;
+                            *(p_vmem-2 - j*2) = ' ';
+                            *(p_vmem-1 - j*2) = DEFAULT_CHAR_COLOR;
+                            j++;
+                        }
+                    }
+                }
+                for(int i=0;i<p_con->cursor;i++){
+                    if(*(u8*)(V_MEM_BASE + i * 2+1)==RED){
+                        *(u8*)(V_MEM_BASE + i * 2+1)=DEFAULT_CHAR_COLOR;
+                    }
+                }
+            }
+            break;
 	case '\n':
-		if (p_con->cursor < p_con->original_addr +
-		    p_con->v_mem_limit - SCREEN_WIDTH) {
-            push(p_con,p_con->cursor);
-			p_con->cursor = p_con->original_addr + SCREEN_WIDTH * 
-				((p_con->cursor - p_con->original_addr) /
-				 SCREEN_WIDTH + 1);
-		}
+        if(mode == 0){
+            if (p_con->cursor < p_con->original_addr +
+                                p_con->v_mem_limit - SCREEN_WIDTH) {
+                push(p_con,p_con->cursor);
+                p_con->cursor = p_con->original_addr + SCREEN_WIDTH *
+                                                       ((p_con->cursor - p_con->original_addr) /
+                                                        SCREEN_WIDTH + 1);
+            }
+        } else{
+            mode = 2;
+        }
+
 		break;
 	case '\b':
 		if (p_con->cursor > p_con->original_addr) {
@@ -117,8 +154,16 @@ PUBLIC void out_char(CONSOLE* p_con, char ch)
 		if (p_con->cursor <
 		    p_con->original_addr + p_con->v_mem_limit - 1) {
             push(p_con,p_con->cursor);
+            if(mode == 0 && p_con->cursor>p_con->lastNormalCursor){
+                p_con->lastNormalCursor = p_con->cursor;
+            }
 			*p_vmem++ = ch;
-			*p_vmem++ = DEFAULT_CHAR_COLOR;
+            if(mode == 0 || ch == ' '){
+                *p_vmem++ = DEFAULT_CHAR_COLOR;
+            } else{
+                *p_vmem++ = RED;
+            }
+
 			p_con->cursor++;
 		}
 		break;

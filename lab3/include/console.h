@@ -22,7 +22,9 @@ typedef struct s_console
 	unsigned int	original_addr;		/* 当前控制台对应显存位置 */
 	unsigned int	v_mem_limit;		/* 当前控制台占的显存大小 */
 	unsigned int	cursor;/* 当前光标位置 */
+    unsigned int lastNormalCursor;//进入查找模式前的光标位置
     cSTACK* cursor_Stack;//记录光标位置
+
 }CONSOLE;
 
 #define SCR_UP	1	/* scroll forward */

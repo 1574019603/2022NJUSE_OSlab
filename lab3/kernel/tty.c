@@ -97,6 +97,16 @@ PUBLIC void in_process(TTY* p_tty, u32 key)
                     case TAB:
                         put_key(p_tty, '\t');
                         break;
+                    case ESC:
+                        if(mode != 2){
+                            if(mode == 0){
+                                mode = 1;
+                            } else{
+                                mode = 0;
+                            }
+                        }
+                        put_key(p_tty,'\r');
+                        break;
 		case F1:
 		case F2:
 		case F3:

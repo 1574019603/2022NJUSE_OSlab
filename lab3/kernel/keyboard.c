@@ -163,7 +163,7 @@ PUBLIC void keyboard_read(TTY* p_tty)
 			if (code_with_E0) {
 				column = 2;
 			}
-
+            ctrl = ctrl_l||ctrl_r;
 			key = keyrow[column];
 
 			switch(key) {

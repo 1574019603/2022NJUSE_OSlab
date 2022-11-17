@@ -133,7 +133,7 @@ void TestC()
 
 
 //清理屏幕的函数
-void cleanTheScreen(){
+PUBLIC void cleanTheScreen(){
     disp_pos = 0;
     for (int i = 0; i < SCREEN_SIZE; ++i) {
         disp_str(" ");

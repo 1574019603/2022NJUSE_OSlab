@@ -27,6 +27,10 @@ PRIVATE void put_key(TTY* p_tty, u32 key);
 /*======================================================================*
                            task_tty
  *======================================================================*/
+static void pushAction(struct s_console *p_con, char ch);
+
+void setSeperator(struct s_console *p_con);
+
 PUBLIC void task_tty()
 {
 	TTY*	p_tty;
@@ -161,7 +165,12 @@ PRIVATE void tty_do_read(TTY* p_tty)
 /*======================================================================*
 			      tty_do_write
  *======================================================================*/
-PRIVATE void tty_do_write(TTY* p_tty)
+PRIVATE  void pushAction(struct s_console *p_con, char ch) {
+    p_con->actionStack.ch[p_con->actionStack.index] = ch;
+    p_con->actionStack.index++;
+}
+
+void tty_do_write(TTY* p_tty)
 {
 	if (p_tty->inbuf_count) {
 		char ch = *(p_tty->p_inbuf_tail);
@@ -170,9 +179,18 @@ PRIVATE void tty_do_write(TTY* p_tty)
 			p_tty->p_inbuf_tail = p_tty->in_buf;
 		}
 		p_tty->inbuf_count--;
-
+        if(ch!='\r'){
+            pushAction(p_tty->p_console,ch);
+        } else{
+            pushAction(p_tty->p_console,ch);
+            setSeperator(p_tty->p_console);
+        }
 		out_char(p_tty->p_console, ch);
 	}
+}
+
+void setSeperator(struct s_console *p_con) {
+    p_con->actionStack.ESCseperator = p_con->actionStack.index;
 }
 
 

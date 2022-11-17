@@ -35,4 +35,7 @@ extern	TTY		tty_table[];
 extern  CONSOLE         console_table[];
 extern int mode;
 
+extern int ctrl;
+
+
 

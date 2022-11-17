@@ -31,6 +31,10 @@ PRIVATE unsigned int pop(CONSOLE* p_con);
 /*======================================================================*
 			   init_screen
  *======================================================================*/
+void search(CONSOLE *pConsole);
+
+void rollback(CONSOLE *p_con);
+
 PUBLIC void init_screen(TTY* p_tty)
 {
 	int nr_tty = p_tty - tty_table;
@@ -42,12 +46,19 @@ PUBLIC void init_screen(TTY* p_tty)
 	p_tty->p_console->original_addr      = nr_tty * con_v_mem_size;//当前终端的起始地址
 	p_tty->p_console->v_mem_limit        = con_v_mem_size;
 	p_tty->p_console->current_start_addr = p_tty->p_console->original_addr;
+    p_tty->p_console->actionStack.index = 0;
+    p_tty->p_console->actionStack.ESCseperator = 0;
+
+    for (int i = 0; i < 80*25; ++i) {
+        p_tty->p_console->actionStack.ch[i] = ' ';
+    }
 
 	/* 默认光标位置在最开始处 */
 	p_tty->p_console->cursor = p_tty->p_console->original_addr;
     p_tty->p_console->cursor_Stack->now_index = 0;
     p_tty->p_console->lastNormalCursor = p_tty->p_console->cursor;
     p_tty->p_console->cursor_Stack->length = SCREEN_SIZE;
+
 
 	if (nr_tty == 0) {
 		/* 第一个控制台沿用原来的光标位置 */
@@ -89,6 +100,7 @@ PUBLIC void out_char(CONSOLE* p_con, char ch)
     }
 
 	switch(ch) {
+
         case '\r':
             if(mode == 1){
                 p_con->lastNormalCursor = p_con->cursor;
@@ -123,6 +135,7 @@ PUBLIC void out_char(CONSOLE* p_con, char ch)
             }
         } else{
             mode = 2;
+            search(p_con);
         }
 
 		break;
@@ -150,6 +163,12 @@ PUBLIC void out_char(CONSOLE* p_con, char ch)
                 }
                 break;
             }
+            case 'z':
+        case 'Z':
+            if(ctrl){
+                rollback(p_con);
+                return;
+            }
 	default:
 		if (p_con->cursor <
 		    p_con->original_addr + p_con->v_mem_limit - 1) {
@@ -174,6 +193,84 @@ PUBLIC void out_char(CONSOLE* p_con, char ch)
 	}
 
 	flush(p_con);
+}
+
+PUBLIC void rollback(CONSOLE *p_con) {
+    if(mode == 0){
+        //清屏
+        disp_pos = 0;
+        for (int i = 0; i < SCREEN_SIZE; ++i) {
+            disp_str(" ");
+        }
+        disp_pos = 0;
+
+        p_con->cursor_Stack->now_index = 0;
+        p_con->cursor = disp_pos/2;
+    }
+    if(mode == 1){
+        p_con->cursor_Stack->now_index = p_con->actionStack.ESCseperator;
+        disp_pos = p_con->lastNormalCursor*2;
+        for (int i = 0; i < SCREEN_SIZE; ++i) {
+            disp_str(" ");
+        }
+        disp_pos = p_con->lastNormalCursor*2;
+        p_con->cursor = disp_pos/2;
+    }
+    flush(p_con);
+
+    //下面根据actionSTACK复现
+    int start = mode == 1?p_con->actionStack.ESCseperator:0;
+    p_con->actionStack.index-=2;
+    if(p_con->actionStack.index<=0){
+        p_con->actionStack.index=0;
+        return;
+        //已经清空
+    }
+    for (int i = start; i < p_con->actionStack.index; ++i) {
+        out_char(p_con,p_con->actionStack.ch[i]);
+    }
+
+
+}
+
+//搜索函数
+void search(CONSOLE *p_con) {
+    int length = p_con->cursor - p_con->lastNormalCursor;
+    if(length == 0)
+        return;
+
+    char* searchedChar;//被搜索的字符
+    char* searchedColor;
+
+    char* searchChar;//匹配字符串
+    char* searchColor;
+
+    for (int i = 0; i < p_con->lastNormalCursor; ++i) {
+        int isfind = 1;
+        if(length > p_con->lastNormalCursor){
+            isfind = 0;
+        }
+        for (int j = 0; j < length; ++j) {
+            searchedChar = (char*)(V_MEM_BASE+i*2+j*2);
+            searchedColor = (char*)(V_MEM_BASE+i*2+j*2+1);
+
+            searchChar = (char*)(V_MEM_BASE+p_con->lastNormalCursor*2+j*2);
+            searchColor = (char*)(V_MEM_BASE+p_con->lastNormalCursor*2+j*2+1);
+
+            if(*searchChar != *searchedChar|| (*searchedChar ==' '&&*searchColor!=*searchedColor)){
+                isfind = 0;
+                break;
+            }
+        }
+
+        if(isfind == 1){
+            for (int j = 0; j < length; ++j) {
+                if(*(u8*)(V_MEM_BASE + i * 2+j*2)!=' ')
+                    *(u8*)(V_MEM_BASE + i * 2+j*2+1)=RED;
+            }
+        }
+
+    }
 }
 
 /*======================================================================*

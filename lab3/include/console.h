@@ -14,6 +14,11 @@ typedef struct cursor_stack{
     unsigned int array[80 * 25];
 }cSTACK;
 
+typedef struct action_stack{
+    int index;//当前的下标
+    int ESCseperator;//记录/r的下标
+    char ch[80*25];//储存每一步的字符
+}actionSTACK;
 
 /* CONSOLE */
 typedef struct s_console
@@ -24,6 +29,7 @@ typedef struct s_console
 	unsigned int	cursor;/* 当前光标位置 */
     unsigned int lastNormalCursor;//进入查找模式前的光标位置
     cSTACK* cursor_Stack;//记录光标位置
+    actionSTACK actionStack;//用于回滚操作
 
 }CONSOLE;
 

@@ -158,7 +158,7 @@ PUBLIC void out_char(CONSOLE* p_con, char ch)
                 push(p_con,p_con->cursor);
                 for (int i = 0; i < 4; ++i) {
                     *p_vmem++ = ' ';
-                    *p_vmem++ = DEFAULT_CHAR_COLOR;
+                    *p_vmem++ = BLUE;
                     p_con->cursor++;
                 }
                 break;
